@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Mahjong Scorer",
+    "slug": "mahjong-scorer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E1A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mahjong.scorer"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0E1A"
+      },
+      "package": "com.mahjong.scorer"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
