@@ -6,10 +6,10 @@
 
 from enum import Enum
 from typing import List, Optional, Tuple
+from collections import defaultdict
 
 from pyriichi.enum_utils import TranslatableEnum
 from pyriichi.tiles import Suit, Tile
-
 
 class CombinationType(Enum):
     """和牌組合類型"""
@@ -43,6 +43,17 @@ class Combination:
 
     def set_open(self, is_open: bool):
         self._is_open = is_open
+
+    def comb2meld(self):
+        if self._type == CombinationType.PAIR:
+            raise ValueError("Pair cannot be made meld")
+        # TODO: Deal with ANKAN
+        CombType2MeldType = {
+            CombinationType.TRIPLET: MeldType.PON,
+            CombinationType.SEQUENCE: MeldType.CHI,
+            CombinationType.KAN: MeldType.KAN,
+        }
+        return Meld(CombType2MeldType[self._type], self._tiles,)
 
     @property
     def is_open(self) -> bool:
@@ -589,9 +600,11 @@ class Hand:
         total_tiles_count = len(tiles) + sum(len(m.tiles) for m in melds)
         if total_tiles_count < 14:
             return False, []
-
         counts = self._get_tile_counts(tiles)
-        combinations = []
+
+        # _find_melds counts combinations of different orders, e.g. 4 distinct combinations => 24 total possible combinations
+        # Implemented as dict to avoid storing duplicants
+        combinations = defaultdict(list)
 
         for _, count in counts.items():
             if count > 4:
@@ -613,9 +626,83 @@ class Hand:
                 melds,
                 Combination(CombinationType.PAIR, [pair_tile, pair_tile]),
             ):
-                combinations.extend(results)
+                for possible_result in results:
+                    parse_results = self._parse_comb(possible_result)
+                    if parse_results in combinations: continue
+                    combinations[parse_results] = self._sort_comb(possible_result)
 
         return len(combinations) > 0, combinations
+    
+    def _parse_comb(self, results: List[Combination]):
+        """
+        Parse the list of combination as a standardized string as a key
+        """
+        parse_str = ""
+        for idx, comb in enumerate(results):
+            for tile in comb.tiles:
+                tile_str = tile.__str__()
+                number, suit = tile_str[0], tile_str[1]
+                parse_str += number + suit
+            if idx != len(results) - 1:
+                parse_str += "_"
+        parse_str = self._sort_parse_str(parse_str)
+        return parse_str
+
+    def _parse_hand(self, tiles: List[Tile]):
+        """
+        Parse the list of tiles as a standardized string as a key
+        """
+        parse_str = ""
+        for idx, tile in enumerate(tiles):
+            tile_str = tile.__str__()
+            number, suit = tile_str[0], tile_str[1]
+            parse_str += number + suit
+            if idx != len(tiles) - 1:
+                parse_str += "_"
+        parse_str = self._sort_parse_str(parse_str)
+        return parse_str
+
+    def _sort_parse_str(self, parse_str: str):
+        order_map = {ch: index for index, ch in enumerate("psmj")}
+        parse_str_l = parse_str.split("_")
+        # Default order should be like: 筒索萬
+        sorted_parse_str = sorted(parse_str_l, key=lambda x: (order_map.get(x[1], len(order_map)), int(x[0])))
+        return '_'.join(sorted_parse_str)
+    
+    def _sort_comb(self, results: List[Combination]):
+        parse_comb_str = ""
+        parse_comb_str2idx = defaultdict(list)
+        for idx, comb in enumerate(results):
+            first_tile_str = str(comb.tiles[0])
+            parse_comb_str2idx[first_tile_str].append(idx)
+            parse_comb_str += first_tile_str
+            if idx != len(results) - 1:
+                parse_comb_str += "_"
+        parse_comb_str = self._sort_parse_str(parse_comb_str)
+        sorted_results = []
+        for tile_str in parse_comb_str.split("_"):
+            sorted_results.append(results[parse_comb_str2idx[tile_str].pop(0)])
+        return sorted_results
+    
+    def sort_tile(self):
+        """
+        Customized sorting function for hand._tiles
+        """
+        parse_tile_str = ""
+        parse_tile_str2idx = defaultdict(list)
+        for idx, tile in enumerate(self._tiles):
+            tile_str = str(tile)
+            parse_tile_str += tile_str
+            if idx != len(self._tiles) - 1:
+                parse_tile_str += "_"
+            parse_tile_str2idx[tile_str].append(idx)
+            
+        parse_tile_str = self._sort_parse_str(parse_tile_str)
+        sorted_tiles = []
+        for tile_str in parse_tile_str.split("_"):
+            sorted_tiles.append(self._tiles[parse_tile_str2idx[tile_str].pop(0)])
+        self._tiles = sorted_tiles
+
 
     def _find_melds(
         self,

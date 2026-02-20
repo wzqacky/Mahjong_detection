@@ -203,13 +203,12 @@ class Tile:
         return self._format_name(locale)
 
 
-def create_tile(suit: str, rank: int, is_red: bool = False) -> Tile:
+def create_tile(id: str, is_red: bool = False) -> Tile:
     """
     創建一張牌（便捷函數）。
 
     Args:
-        suit (str): 花色字符串 ("m", "p", "s", "z")。
-        rank (int): 數字。
+        id (str): the sequence obtained from YOLO prediction
         is_red (bool): 是否為紅寶牌。
 
     Returns:
@@ -218,14 +217,28 @@ def create_tile(suit: str, rank: int, is_red: bool = False) -> Tile:
     Raises:
         ValueError: 如果 suit 無效。
     """
+    # TODO: Add suit for flowers (pyriichi default no flower, but this is required when expanding to other mahjong types)
     suit_map = {
-        "m": Suit.MANZU,
-        "p": Suit.PINZU,
-        "s": Suit.SOZU,
-        "z": Suit.JIHAI,
+        "C": Suit.MANZU,
+        "D": Suit.PINZU,
+        "B": Suit.SOZU,
+        "W": Suit.JIHAI,
     }
+
+    jihai_id_map = {
+        "EW": 1,
+        "SW": 2,
+        "WW": 3,
+        "NW": 4,
+        "WD": 5,
+        "GD": 6,
+        "RD": 7,
+    }
+    suit = id[-1]
+    rank = jihai_id_map[id] if id in jihai_id_map else int(id[0])
+
     if suit not in suit_map:
-        raise ValueError(f"無效的花色: {suit}")
+        print(f"無效的花色: {suit}")
     return Tile(suit_map[suit], rank, is_red)
 
 
