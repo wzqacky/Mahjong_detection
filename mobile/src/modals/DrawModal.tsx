@@ -54,8 +54,8 @@ export default function DrawModal({ visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.sheet} onPress={e => e.stopPropagation()}>
           <View style={styles.handle} />
           <Text style={styles.title}>流局 DRAW / RYUUKYOKU</Text>
           <View style={styles.divider} />
@@ -121,6 +121,7 @@ export default function DrawModal({ visible, onClose }: Props) {
             <View style={styles.btnRow}>
               <Pressable onPress={handleClose} style={styles.cancelBtn}>
                 <Text style={styles.cancelText}>キャンセル</Text>
+                <Text style={styles.cancelText}>CANCEL</Text>
               </Pressable>
               <Pressable onPress={handleConfirm} style={styles.confirmBtn}>
                 <LinearGradient
@@ -135,8 +136,8 @@ export default function DrawModal({ visible, onClose }: Props) {
               </Pressable>
             </View>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

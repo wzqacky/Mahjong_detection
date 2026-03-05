@@ -70,9 +70,9 @@ export default function RoundModal({ visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
         {step === 'hand' && winnerId ? (
-          <View style={styles.fullSheet}>
+          <Pressable style={styles.fullSheet} onPress={e => e.stopPropagation()}>
             <HandInputScreen
               winnerId={winnerId}
               loserId={loserId}
@@ -80,7 +80,7 @@ export default function RoundModal({ visible, onClose }: Props) {
               onBack={() => setStep('select')}
               onResult={handleResult}
             />
-          </View>
+          </Pressable>
         ) : step === 'score' && scoreResponse ? (
           <ScoreModal
             response={scoreResponse}
@@ -91,7 +91,7 @@ export default function RoundModal({ visible, onClose }: Props) {
             onClose={handleClose}
           />
         ) : (
-          <View style={styles.sheet}>
+          <Pressable style={styles.sheet} onPress={e => e.stopPropagation()}>
             {/* Handle */}
             <View style={styles.handle} />
 
@@ -201,9 +201,9 @@ export default function RoundModal({ visible, onClose }: Props) {
                 </LinearGradient>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
         )}
-      </View>
+      </Pressable>
     </Modal>
   );
 }
