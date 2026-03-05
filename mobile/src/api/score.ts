@@ -1,25 +1,21 @@
-import axios, { AxiosError } from 'axios';
 import { BASE_URL } from '../config';
 import { ScoreRequest, ScoreResponse } from '../types';
 
-const client = axios.create({
-  baseURL: BASE_URL,
-  timeout: 15_000,
-  headers: { 'Content-Type': 'application/json' },
-});
-
 export async function calculateScore(req: ScoreRequest): Promise<ScoreResponse> {
   try {
-    const { data } = await client.post<ScoreResponse>('/api/score', req);
-    return data;
+    const res = await fetch(`${BASE_URL}/api/score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const detail = body?.detail;
+      throw new Error(typeof detail === 'string' ? detail : `HTTP ${res.status}`);
+    }
+    return await res.json();
   } catch (err) {
-    const axiosErr = err as AxiosError<{ detail?: unknown }>;
-    // FastAPI validation error (422) or network error
-    const detail = axiosErr.response?.data?.detail;
-    const message =
-      typeof detail === 'string'
-        ? detail
-        : axiosErr.message ?? 'Network error';
+    const message = err instanceof Error ? err.message : 'Network error';
     return {
       is_winning: false,
       yaku: [],
@@ -39,8 +35,8 @@ export async function calculateScore(req: ScoreRequest): Promise<ScoreResponse> 
 
 export async function healthCheck(): Promise<boolean> {
   try {
-    await client.get('/api/health', { timeout: 5_000 });
-    return true;
+    const res = await fetch(`${BASE_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
+    return res.ok;
   } catch {
     return false;
   }
