@@ -1,4 +1,4 @@
-// ─── Player & Icons ────────────────────────────────────────────────────────────
+// Player & Icons
 export interface PlayerIcon {
   id: string;
   emoji: string;
@@ -15,13 +15,13 @@ export interface Player {
   isDealer: boolean;
 }
 
-// ─── Melds ──────────────────────────────────────────────────────────────────────
+// Melds
 export interface MeldEntry {
   tiles: string[];   // tile strings e.g. ["1B","2B","3B"]
   isOpen: boolean;
 }
 
-// ─── Yaku ───────────────────────────────────────────────────────────────────────
+// Yaku
 export interface YakuItem {
   code: string;
   name_zh: string;
@@ -30,7 +30,7 @@ export interface YakuItem {
   is_yakuman: boolean;
 }
 
-// ─── Round ──────────────────────────────────────────────────────────────────────
+// Round
 export interface Round {
   roundNumber: number;
   roundWind: 'East' | 'South';
@@ -47,7 +47,7 @@ export interface Round {
   payments: Record<string, number>;  // playerId → signed delta
 }
 
-// ─── API request / response ──────────────────────────────────────────────────────
+// API request / response
 // Mirrors server/schemas.py exactly
 export interface MeldInput {
   tiles: string[];
@@ -95,7 +95,7 @@ export interface ScoreResponse {
   error?: string | null;
 }
 
-// ─── Hand level label ───────────────────────────────────────────────────────────
+// Hand level label
 export type HandLevel =
   | 'mangan'    // 満貫  5han / 4han70fu / 3han110fu
   | 'haneman'   // 跳満  6-7han
@@ -123,7 +123,24 @@ export const HAND_LEVEL_LABELS: Record<HandLevel, { zh: string; en: string }> = 
   normal:    { zh: '',      en: '' },
 };
 
-// ─── Navigation param lists ─────────────────────────────────────────────────────
+// Detection API
+export interface Detection {
+  tile: string;       // e.g. "5B", "RD", "EW"
+  confidence: number; // 0–1
+  x: number;          // bounding-box centre x (pixels)
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DetectResponse {
+  detections: Detection[];
+  image_width: number;
+  image_height: number;
+  error?: string | null;
+}
+
+// Navigation param lists
 export type RootStackParamList = {
   Setup: undefined;
   Game: undefined;

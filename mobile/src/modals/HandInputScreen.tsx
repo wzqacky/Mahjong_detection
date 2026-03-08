@@ -8,11 +8,14 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors, Fonts, Spacing, FontSize, Radius } from '../constants/theme';
-import { MeldEntry, ScoreRequest, ScoreResponse } from '../types';
+import { MeldEntry, ScoreRequest, ScoreResponse, Detection } from '../types';
 import { useGameStore, selectRoundWindLower } from '../store/gameStore';
 import { calculateScore } from '../api/score';
+import { detectTiles } from '../api/detect';
 import TilePicker from '../components/TilePicker';
 import SelectedHand from '../components/SelectedHand';
 import MeldBuilder from '../components/MeldBuilder';
@@ -50,6 +53,9 @@ export default function HandInputScreen({
   const [doraCounts, setDoraCounts] = useState<Record<string, number>>({});
   // Loading
   const [loading, setLoading] = useState(false);
+  // Detection
+  const [detecting, setDetecting] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const players = useGameStore(s => s.players);
   const riichiBets = useGameStore(s => s.riichiBets);
@@ -107,6 +113,76 @@ export default function HandInputScreen({
 
   const handleRemoveMeld = (index: number) => {
     setMelds(prev => prev.filter((_, i) => i !== index));
+  };
+
+  /** Apply detection results: sort by x-position (left→right) and add tiles. */
+  const applyDetections = (detections: Detection[]) => {
+    // Sort left-to-right so tile order matches physical layout
+    const sorted = [...detections].sort((a, b) => a.x - b.x);
+
+    const newTiles: string[] = [];
+    const newCounts: Record<string, number> = {};
+
+    for (const det of sorted) {
+      const tile = det.tile;
+      const cur = newCounts[tile] ?? 0;
+      if (cur >= 4 || newTiles.length >= 14) continue;
+      newTiles.push(tile);
+      newCounts[tile] = cur + 1;
+    }
+
+    setTiles(newTiles);
+    setCounts(newCounts);
+    setRedFlags({});
+    setWinTileIndex(newTiles.length - 1);
+    setMelds([]);
+  };
+
+  const pickImage = async (useCamera: boolean) => {
+    // Request permission
+    if (useCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Camera access is needed to detect tiles.');
+        return;
+      }
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Photo library access is needed to detect tiles.');
+        return;
+      }
+    }
+
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+        });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const uri = result.assets[0].uri;
+    setPreviewUri(uri);
+    setDetecting(true);
+
+    try {
+      const response = await detectTiles(uri);
+      if (response.error) {
+        Alert.alert('Detection failed', response.error);
+        return;
+      }
+      if (response.detections.length === 0) {
+        Alert.alert('No tiles found', 'Try a clearer photo with better lighting.');
+        return;
+      }
+      applyDetections(response.detections);
+    } catch {
+      Alert.alert('Error', 'Failed to detect tiles.');
+    } finally {
+      setDetecting(false);
+    }
   };
 
   const handleCalculate = async () => {
@@ -206,6 +282,44 @@ export default function HandInputScreen({
             onTilePress={handleSlotPress}
             onSetWinTile={setWinTileIndex}
           />
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Camera detection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>── DETECT FROM PHOTO ──</Text>
+          <View style={styles.cameraRow}>
+            <Pressable
+              style={styles.cameraBtn}
+              onPress={() => pickImage(true)}
+              disabled={detecting}
+            >
+              <Text style={styles.cameraBtnIcon}>📷</Text>
+              <Text style={styles.cameraBtnText}>Camera</Text>
+            </Pressable>
+            <Pressable
+              style={styles.cameraBtn}
+              onPress={() => pickImage(false)}
+              disabled={detecting}
+            >
+              <Text style={styles.cameraBtnIcon}>🖼</Text>
+              <Text style={styles.cameraBtnText}>Gallery</Text>
+            </Pressable>
+          </View>
+          {detecting && (
+            <View style={styles.detectingRow}>
+              <ActivityIndicator color={Colors.accentGold} size="small" />
+              <Text style={styles.detectingText}>Detecting tiles...</Text>
+            </View>
+          )}
+          {previewUri && !detecting && (
+            <Image
+              source={{ uri: previewUri }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
         </View>
 
         <View style={styles.divider} />
@@ -357,6 +471,47 @@ const styles = StyleSheet.create({
   chevron: {
     color: Colors.accentGold,
     fontSize: FontSize.sm,
+  },
+  cameraRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  cameraBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgSurface2,
+    borderWidth: 1,
+    borderColor: Colors.borderGlow,
+    borderRadius: Radius.button,
+    paddingVertical: Spacing.md,
+  },
+  cameraBtnIcon: {
+    fontSize: FontSize.xl,
+  },
+  cameraBtnText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: FontSize.sm,
+    color: Colors.textPrimary,
+  },
+  detectingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  detectingText: {
+    fontFamily: Fonts.sans,
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: Radius.card,
+    marginTop: Spacing.sm,
   },
   doraContainer: {
     marginTop: Spacing.sm,
