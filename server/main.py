@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.routers.score import router as score_router
+from server.routers.detect import router as detect_router
 
 app = FastAPI(
     title="Mahjong Score API",
@@ -30,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(score_router)
+app.include_router(detect_router)
 
 
 @app.get("/api/health", tags=["health"])
