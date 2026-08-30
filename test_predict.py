@@ -12,6 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+from PIL import Image, ImageDraw, ImageFont
 
 # Add YOLOv5 to path
 FILE = Path(__file__).resolve()
@@ -26,6 +27,10 @@ from utils.general import non_max_suppression, scale_boxes, check_img_size
 from utils.augmentations import letterbox
 from utils.torch_utils import select_device
 
+
+CJK_FONT_PATH = os.environ.get("CJK_FONT_PATH", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+
+
 class MahjongTileDetector:
     def __init__(self,
                  weights,
@@ -33,6 +38,7 @@ class MahjongTileDetector:
                  img_size=640,
                  conf_thres=0.25,
                  iou_thres=0.45,
+                 show_zh=False,
                  ):
         self.weights = weights
         self.device = select_device()
@@ -40,6 +46,7 @@ class MahjongTileDetector:
         self.img_size = img_size
         self.conf_thres = conf_thres
         self.iou_thres = iou_thres
+        self.show_zh = show_zh
 
         self._setup()
 
@@ -73,44 +80,56 @@ class MahjongTileDetector:
         pred = non_max_suppression(pred, self.conf_thres, self.iou_thres)
         return pred
 
-    def _plot_boxes(self, im, img0, det, show_zh=True):
-        img_draw = img0.copy()
+    def _plot_boxes(self, im, img0, det):
         num_classes = len(self.name)
 
         # Generate random color for each class
         np.random.seed(42)
         colors = {i: tuple(int(c) for c in color) for i, color in
               enumerate(np.random.randint(0, 255, size=(num_classes, 3)))}
-    
+
+        img_pil = Image.fromarray(cv2.cvtColor(img0, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_pil)
+        if self.show_zh:
+            if not os.path.exists(CJK_FONT_PATH):
+                print("show_zh activated, but no default Chinese font path found, disabling it."
+                      "Change the environment variable 'CJK_FONT_PATH' to a Chinese font.")
+                self.show_zh = False
+            else:
+                font = ImageFont.truetype(CJK_FONT_PATH, size=18)
+        else:
+            font = ImageFont.load_default()
+
         for *xyxy, conf, cls in det:
             x1, y1, x2, y2 = [int(v.item()) for v in xyxy]
-
             cls_id = int(cls.item())
             confidence = conf.item()
-            color = colors.get(cls_id, (0, 255, 0))
-            label = f"{self.name[cls_id]} {confidence:.2f}" if not show_zh else \
-                f"{self.name_to_zh[self.name[cls_id]]} {confidence:.2f}"
+            bgr = colors.get(cls_id, (0, 255, 0))
+            rgb = (bgr[2], bgr[1], bgr[0])
+            label = (f"{self.name_to_zh[self.name[cls_id]]} {confidence:.2f}"
+                     if self.show_zh else f"{self.name[cls_id]} {confidence:.2f}")
 
-            # Draw bounding boxes
-            cv2.rectangle(img_draw, (x1, y1), (x2, y2), color, 2)
+            # Bounding box
+            draw.rectangle([x1, y1, x2, y2], outline=rgb, width=2)
 
-            # Draw label background
-            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(img_draw, (x1, y1 - th - 6), (x1 + tw, y1), color, -1)
-            cv2.putText(img_draw, label, (x1, y1 - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-        return img_draw
+            # Label background + Text
+            left, top, right, bottom = draw.textbbox((x1, y1), label, font=font)
+            tw, th = right - left, bottom - top
+            draw.rectangle([x1, y1 - th - 6, x1 + tw + 4, y1], fill=rgb)
+            draw.text((x1 + 2, y1 - th - 4), label, fill=(255, 255, 255), font=font)
+        
+        return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
 
     def _get_zh_names(self):
         return {
-            "1B": "一筒", "2B": "二筒", "3B": "三筒", "4B": "四筒", "5B": "五筒",
-            "6B": "六筒", "7B": "七筒", "8B": "八筒", "9B": "九筒",
+            "1D": "一筒", "2D": "二筒", "3D": "三筒", "4D": "四筒", "5D": "五筒",
+            "6D": "六筒", "7D": "七筒", "8D": "八筒", "9D": "九筒",
 
-            "1C": "一索", "2C": "二索", "3C": "三索", "4C": "四索", "5C": "五索",
-            "6C": "六索", "7C": "七索", "8C": "八索", "9C": "九索",
+            "1B": "一索", "2B": "二索", "3B": "三索", "4B": "四索", "5B": "五索",
+            "6B": "六索", "7B": "七索", "8B": "八索", "9B": "九索",
 
-            "1D": "一萬", "2D": "二萬", "3D": "三萬", "4D": "四萬", "5D": "五萬",
-            "6D": "六萬", "7D": "七萬", "8D": "八萬", "9D": "九萬",
+            "1C": "一萬", "2C": "二萬", "3C": "三萬", "4C": "四萬", "5C": "五萬",
+            "6C": "六萬", "7C": "七萬", "8C": "八萬", "9C": "九萬",
 
             "EW": "東", "SW": "南", "WW": "西", "NW": "北",
             "WD": "白", "GD": "發", "RD": "中",
@@ -129,6 +148,7 @@ class MahjongTileDetector:
         h, w = img0.shape[:2]
 
         for det in pred:
+            tiles = []
             if not len(det):
                 # Save original image (no detection found)
                 cv2.imwrite(str(vis_file), img0)
@@ -147,6 +167,7 @@ class MahjongTileDetector:
                     bw = (x2 - x1) / w
                     bh = (y2 - y1) / h
                     cls_id = int(cls.item())
+                    tiles.append(self.name[cls_id])
                     confidence = conf.item()
                     f.write(f"{cls_id} {x_center:.6f}, {y_center:.6f}, {bw:.6f}, {bh:.6f}, {confidence:.6f}\n")
             
@@ -157,6 +178,7 @@ class MahjongTileDetector:
 
             print(f"Labels saved to: {str(label_file)}")
             print(f"Visualizations saved to: {str(vis_file)}")
+            return tiles
     
     def detect(self, img_path):
         im, img0 = self._load_image(img_path)
@@ -165,7 +187,9 @@ class MahjongTileDetector:
         pred = self._model(im)
 
         # Process detections
-        self.process_pred(pred, im, img0, img_path)
+        tiles = self.process_pred(pred, im, img0, img_path)
+
+        return tiles
 
 
 def run(
@@ -175,13 +199,15 @@ def run(
         img_size,
         conf_thres,
         iou_thres,
+        show_zh
 ):
     # TODO: Have to support arbitrary image size
     detector = MahjongTileDetector(weights=weights, 
                                    output_dir=output_dir,
                                    img_size=img_size,
                                    conf_thres=conf_thres,
-                                   iou_thres=iou_thres)
+                                   iou_thres=iou_thres,
+                                   show_zh=show_zh)
     detector.detect(input_img_path)
 
 
@@ -191,11 +217,12 @@ if __name__ == "__main__":
                         help="Path to model weights")
     parser.add_argument("--input_img_path", type=str, required=True,
                         help="Path to the testing image")
-    parser.add_argument("--output_dir", type=str, default="test/predicted_labels",
+    parser.add_argument("--output_dir", type=str, default="testing/predicted_labels",
                         help="Directory to save predicted labels")
     parser.add_argument("--img_size", type=int, default=640, help="inference image size")
     parser.add_argument("--conf_thres", type=float, default=0.25, help="confidence threshold")
     parser.add_argument("--iou_thres", type=float, default=0.45, help="NMS IoU threshold")
+    parser.add_argument("--show_zh", action="store_true", help="Whether to show Chinese labels.")
     args = parser.parse_args()
 
     run(
@@ -205,4 +232,5 @@ if __name__ == "__main__":
         img_size=args.img_size,
         conf_thres=args.conf_thres,
         iou_thres=args.iou_thres,
+        show_zh=args.show_zh
     )
