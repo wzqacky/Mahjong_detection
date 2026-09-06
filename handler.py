@@ -5,22 +5,26 @@ from typing import Any, Dict
 import requests
 
 import runpod
+import torch
 from PIL import Image
-from ultralytics import YOLO
 
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "")
-DEVICE = os.environ.get("DEVICE", "cuda:0") # falls back to cpu on cpu workers
+YOLOV5_DIR = os.environ.get("YOLOV5_DIR", "/app/yolov5")
+DEVICE = os.environ.get("DEVICE", "cuda:0" if torch.cuda.is_available() else "cpu")
 
-print(f"Loading YOLO weights from {MODEL_PATH} on {DEVICE}")
-model = YOLO(MODEL_PATH)
-
-_ = model.predict(
-    Image.new("RGB", (640, 640)),
+print(f"Loading YOLOv5 weights from {MODEL_PATH} on {DEVICE}")
+model = torch.hub.load(
+    YOLOV5_DIR,
+    "custom",
+    path=MODEL_PATH,
+    source="local",
     device=DEVICE,
-    verbose=False,
 )
-print(f"Model ready and warmed up.")
+model.eval()
+
+_ = model(Image.new("RGB", (640, 640)))
+print("Model ready and warmed up.")
 
 
 def _load_image(job_input: Dict[str, Any]) -> Image.Image:
@@ -49,24 +53,17 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to load image: {e}"}
 
-    results = model.predict(
-        image,
-        conf=confidence,
-        iou=iou,
-        imgsz=imgsz,
-        device=DEVICE,
-        verbose=False,
-    )
-    r = results[0]
+    model.conf = confidence
+    model.iou = iou
 
-    names = r.names
+    results = model(image, size=imgsz)
+    preds = results.xyxy[0].cpu().tolist()
+
     detections = []
-    for box in r.boxes:
-        cls_id = int(box.cls[0].item())
-        x1, y1, x2, y2 = box.xyxy[0].tolist()
+    for x1, y1, x2, y2, conf, cls_id in preds:
         detections.append({
-            "tile": cls_id,
-            "confidence": float(box.conf[0].item()),
+            "tile": int(cls_id),
+            "confidence": float(conf),
             "x": (x1 + x2) / 2,
             "y": (y1 + y2) / 2,
             "width": x2 - x1,
@@ -81,4 +78,4 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    runpod.serveless.start({"handler": handler})
+    runpod.serverless.start({"handler": handler})
