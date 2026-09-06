@@ -1,12 +1,3 @@
-"""
-Request / response schemas for the Mahjong Score API.
-
-Tile string format (matches YOLO detection output and pyriichi's create_tile):
-  Number suits : "1B"–"9B" (Pinzu), "1C"–"9C" (Sozu), "1D"–"9D" (Manzu)
-  Winds        : "EW", "SW", "WW", "NW"
-  Dragons      : "WD" (Haku), "GD" (Hatsu), "RD" (Chun)
-"""
-
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
@@ -36,13 +27,13 @@ class GameContextInput(BaseModel):
         0,
         ge=0,
         le=3,
-        description="Seat index (0–3) of the current dealer (East seat)",
+        description="Seat index (0-3) of the current dealer (East seat)",
     )
     player_position: int = Field( # 3-4 players
         0,
         ge=2,
         le=3,
-        description="Seat index (0–3) of the winning player",
+        description="Seat index (0-3) of the winning player",
     )
     # This is added whenever nobody wins or when the dealer wins
     honba: int = Field(0, ge=0, description="Number of honba sticks on the table")

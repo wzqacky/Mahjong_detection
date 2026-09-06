@@ -25,7 +25,7 @@ const TILE_DISPLAY: Record<string, string> = {
 
 function tileLabel(t: string): string {
   if (TILE_DISPLAY[t]) return TILE_DISPLAY[t];
-  const suitMap: Record<string, string> = { D: '萬', B: '筒', C: '索' };
+  const suitMap: Record<string, string> = { D: '筒', B: '索', C: '萬' };
   return `${t.slice(0, -1)}${suitMap[t.slice(-1)] ?? ''}`;
 }
 

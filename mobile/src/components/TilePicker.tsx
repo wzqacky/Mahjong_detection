@@ -8,17 +8,17 @@ type TileRow = { suit: string; suitKanji: string; tiles: string[] };
 const TILE_ROWS: TileRow[] = [
   {
     suit: 'D',
-    suitKanji: '萬',
+    suitKanji: '筒',
     tiles: ['1D', '2D', '3D', '4D', '5D', '6D', '7D', '8D', '9D'],
   },
   {
     suit: 'B',
-    suitKanji: '筒',
+    suitKanji: '索',
     tiles: ['1B', '2B', '3B', '4B', '5B', '6B', '7B', '8B', '9B'],
   },
   {
     suit: 'C',
-    suitKanji: '索',
+    suitKanji: '萬',
     tiles: ['1C', '2C', '3C', '4C', '5C', '6C', '7C', '8C', '9C'],
   },
 ];

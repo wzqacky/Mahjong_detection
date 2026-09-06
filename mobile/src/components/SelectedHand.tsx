@@ -11,7 +11,7 @@ const TILE_DISPLAY: Record<string, { rank: string; suit: string }> = {
 
 function tileDisplay(tile: string): { rank: string; suit: string } {
   if (TILE_DISPLAY[tile]) return TILE_DISPLAY[tile];
-  const suitMap: Record<string, string> = { D: '萬', B: '筒', C: '索' };
+  const suitMap: Record<string, string> = { D: '筒', B: '索', C: '萬' };
   const rank = tile.slice(0, -1);
   const suit = suitMap[tile.slice(-1)] ?? '?';
   return { rank, suit };
