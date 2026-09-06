@@ -59,10 +59,11 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     results = model(image, size=imgsz)
     preds = results.xyxy[0].cpu().tolist()
 
+    names = model.names
     detections = []
     for x1, y1, x2, y2, conf, cls_id in preds:
         detections.append({
-            "tile": int(cls_id),
+            "tile": names[int(cls_id)],
             "confidence": float(conf),
             "x": (x1 + x2) / 2,
             "y": (y1 + y2) / 2,
